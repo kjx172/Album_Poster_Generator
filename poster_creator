@@ -1,0 +1,36 @@
+import pygame
+import pygame.image
+import io
+
+def create_poster(cover, album_name):
+    # Initialize Pygame
+    pygame.init()
+
+    # Set the dimensions of the image(poster size)
+    width, height = 2304, 3456
+
+    # Create a background and sets background color
+    screen = pygame.Surface((width, height))
+    screen.fill((255, 255, 240))
+
+    #turns the musicbrainz image to an image that pygame can use
+    image_data = io.BytesIO(cover)
+    image_surface = pygame.image.load(image_data)
+
+    # Scale the image to fit the surface
+    image_surface = pygame.transform.scale(image_surface, (2004, 2004))
+
+    # Calculate the x-coordinate to center the image horizontally
+    x = (width - image_surface.get_width()) // 2
+
+    #places the image on the screen
+    screen.blit(image_surface, (x,100))
+
+    # Save the poster as a jpg
+    file_name = 'generated_image.jpg'
+    pygame.image.save(screen, file_name)
+    print(f"Image saved as {file_name}")
+
+    # Quit Pygame
+    pygame.quit()
+    
