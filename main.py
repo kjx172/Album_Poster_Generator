@@ -3,37 +3,31 @@ import musicbrainzngs
 # Set application details and contact
 musicbrainzngs.set_useragent("Album_Poster_Generator", "1.0", "kisituaaron@gmail.com")
 
-#searching by artist name
-def search_artist(artistName):
-    try: #if an error is not thrown then try to find artist
-        result = musicbrainzngs.search_artists(artist=artistName)
-        
-        #if a result is found off the search
-        if result['artist-list']:
-            #print artist name and ID
-            artist = result['artist-list'][0]
-            print(f"Artist Name: {artist['name']}")
-            print(f"Artist ID: {artist['id']}")
+def get_releasegroupid(search_album, search_artist):
+    try:
+        result = musicbrainzngs.search_release_groups(artist = search_artist, releasegroup = search_album)
 
-            #if disambiguation or country is found print those as well
-            if 'disambiguation' in artist:
-                print(f"Disambiguation: {artist['disambiguation']}")
-            if 'country' in artist:
-                print(f"Country: {artist['country']}")
+        if result['release-group-list']:
+            album = result['release-group-list'][0]
+            return album['id']
 
-        #if nothing is found off the search
         else:
-            print("No artist found.")
+            print("Could Not find album")
 
     except musicbrainzngs.WebServiceError as e:
         print(f"an error occured: {e}")
 
+#searching by artist name
+#def get_cover(album_releasegroupid):
+    #empty for now
+
 # Defining main function 
 def main(): 
-    search_val = input("Enter an artists name:")
+    search_album = input("Enter the name of the album:")
+    search_artist = input("Enter the name of the artist:")
+    album_releasegroupid = get_releasegroupid(search_album, search_artist)
 
-    # Example usage
-    search_artist(search_val)
+    print(album_releasegroupid)
   
   
 # Using the special variable  
