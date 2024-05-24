@@ -2,8 +2,9 @@ import pygame
 import pygame.image
 import io
 
-# Set the dimensions of the image(poster size)
+# Set the dimensions of the image(poster size), color squares, 
 width, height = 2304, 3456
+color_width, color_height = 100, 100
 
 # Set font parameters
 font_size_big = 80
@@ -11,7 +12,7 @@ font_size_small = 60
 font_color = (0, 0, 0)
 font_name = pygame.font.get_default_font()
 
-def create_poster(cover, album_name, tracklist):
+def create_poster(cover, album_name, tracklist, palette):
     # Initialize Pygame
     pygame.init()
 
@@ -42,8 +43,8 @@ def create_poster(cover, album_name, tracklist):
         start_y_tracks = 2254
 
         # Render text onto the surface
-        for track in tracklist:     
-            text_surface = font_big.render(track, True, font_color)
+        for i,track in enumerate(tracklist):     
+            text_surface = font_big.render(str(i + 1) + "." + track, True, font_color)
 
             # Blit the text surface onto the screen
             text_rect = text_surface.get_rect(topleft=(150, start_y_tracks))
@@ -68,14 +69,14 @@ def create_poster(cover, album_name, tracklist):
         # Render text onto the surface
         for i, track in enumerate(tracklist):
             if i <= 13:
-                text_surface = font_small.render(track, True, font_color)
+                text_surface = font_small.render(str(i + 1) + "." + track, True, font_color)
 
                 # Blit the text surface onto the screen for the first column
                 text_rect = text_surface.get_rect(topleft=(150, start_y_tracks1))
                 screen.blit(text_surface, text_rect)
                 start_y_tracks1 += 60
             else:
-                text_surface = font_small.render(track, True, font_color)
+                text_surface = font_small.render(str(i + 1) + "." + track, True, font_color)
 
                 # Blit the text surface onto the screen for the second column
                 text_rect = text_surface.get_rect(topleft=(column_x, start_y_tracks2))
@@ -87,6 +88,16 @@ def create_poster(cover, album_name, tracklist):
         print("too many songs on album, please try again")
         return
 
+    #places the color squares onto the poster
+    top_right_x = width - 150
+    top_y = 2254
+
+    for color in palette:
+        top_left_x = top_right_x - color_width
+
+        pygame.draw.rect(screen, color, (top_left_x, top_y, color_width, color_height))
+
+        top_right_x = top_left_x - 10
 
     # Save the poster as a jpg
     file_name = 'generated_image.jpg'
