@@ -1,4 +1,6 @@
 import musicbrainzngs
+from colorthief import ColorThief #type: ignore
+import io
 
 # Set application details and contact
 musicbrainzngs.set_useragent("Album_Poster_Generator", "1.0", "kisituaaron@gmail.com")
@@ -72,3 +74,6 @@ def get_tracklist(album_id):
 
     except musicbrainzngs.WebServiceError as e:
         print(f"An error occurred: {e}")
+
+#get the most used colors in album cover
+def get_palette(album_cover):
