@@ -40,10 +40,35 @@ def get_releaseID_from_releasegroup(release_groupID):
         print(f"an error occured: {e}")
 
 #attempt to download the album cover
-def get_cover(album_releasegroupid, search_album):
+def get_cover(album_id):
     try:
-        cover = musicbrainzngs.get_image_front(releaseid=album_releasegroupid)
+        cover = musicbrainzngs.get_image_front(releaseid=album_id)
         return cover
+
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred: {e}")
+
+#gets the tracklist
+def get_tracklist(album_id):
+    try:
+        #gets the release(album) by the id, including the list of recordings
+        result = musicbrainzngs.get_release_by_id(album_id, includes=["recordings"])
+        
+        #if there is a list of mediums that the release(album) is on (cd, digital, cassette, etc)
+        if 'medium-list' in result['release']:
+            tracklist = set()
+
+            #for each medium the release(album) is on
+            for medium in result['release']['medium-list']:
+
+                #for each track within that medium, add it to the tracklist using a set to prevent duplicates
+                for track in medium['track-list']:
+                    track_title = track['recording']['title']
+                    tracklist.add(track_title)
+
+        #turn the set back into a list and return it
+        return list(tracklist)
+
 
     except musicbrainzngs.WebServiceError as e:
         print(f"An error occurred: {e}")
