@@ -1,4 +1,4 @@
-from album_retrival import get_releasegroupid, get_releaseID_from_releasegroup, get_cover # type: ignore
+from album_retrival import get_releasegroupid, get_releaseID_from_releasegroup, get_cover, get_tracklist, get_palette # type: ignore
 from poster_creator import create_poster #type: ignore
 
 # Defining main function 
@@ -11,11 +11,13 @@ def main():
     if album_releasegroupid:
         album_id = get_releaseID_from_releasegroup(album_releasegroupid)
 
-    #downloads the album cover
-    album_cover = get_cover(album_id, search_album)
+    #gets the the album cover, tracklist, palette
+    album_cover = get_cover(album_id)
+    tracklist = get_tracklist(album_id)
+    palette = get_palette(album_cover)
 
     #passes album cover into poster creator
-    create_poster(album_cover, search_album)
+    create_poster(album_cover, search_album, tracklist, palette)
   
   
 # Using the special variable __name__ 
