@@ -1,6 +1,7 @@
 import pygame
 import pygame.image
 import io
+import datetime
 
 # Set the dimensions of the image(poster size), color squares, 
 width, height = 2304, 3456
@@ -12,7 +13,56 @@ font_size_small = 60
 font_color = (0, 0, 0)
 font_name = pygame.font.get_default_font()
 
-def create_poster(cover, album_name, tracklist, palette):
+#reformats the date
+def format_date(raw_date):
+
+    #splits the date format into year, month, day
+    sections = raw_date.split('-')
+    year = sections[0]
+    month = sections[1]
+    day = sections[2]
+
+    #year and day dont matter here(put my birthday as filler)
+    month_name = datetime.date(2004, int(month), 25).strftime('%B')
+
+    #reformate date to use month name
+    date_str = day + " " + month_name + " " + year
+    return date_str
+
+
+
+#prevents albums with multiple labels from taking up too much of the screen
+def wrap_text(surface, font, text, color, max_width, starting_y):
+
+    #splits the text into words and creates an array for the lines
+    words = text.split(' ')
+    lines = []
+    current_line = ''
+
+    #for each word if the word doesnt cause the current line to reach the maximum width we add it to the current line, otherwise start a new line
+    for i, word in enumerate(words):
+
+        if i == 0:
+            current_line += word
+            continue
+
+        if font.size(current_line + ' ' + word)[0] <= max_width:
+            current_line += ' ' + word
+        else:
+            lines.append(current_line)
+            current_line = word
+
+    lines.append(current_line)
+
+    #places the lines onto the screen
+    for line in lines:
+        text_surface = font.render(line, True, color)
+        text_rect = text_surface.get_rect(topleft=(150, starting_y))
+        surface.blit(text_surface, text_rect)
+        starting_y += text_rect.height
+
+
+def create_poster(cover, album_name, tracklist, palette, album_length, label_info, release_date):
     # Initialize Pygame
     pygame.init()
 
@@ -50,6 +100,9 @@ def create_poster(cover, album_name, tracklist, palette):
             text_rect = text_surface.get_rect(topleft=(150, start_y_tracks))
             screen.blit(text_surface, text_rect)
             start_y_tracks += 80
+        
+        #used for info box placement
+        last_track_y = start_y_tracks
 
     #if the number of tracks is more than 13 but less than 26
     elif (len(tracklist) <= 26):
@@ -82,22 +135,49 @@ def create_poster(cover, album_name, tracklist, palette):
                 text_rect = text_surface.get_rect(topleft=(column_x, start_y_tracks2))
                 screen.blit(text_surface, text_rect)
                 start_y_tracks2 += 60
+        
+        #used for info box placement
+        last_track_y = start_y_tracks1
 
     #if more than 26 tracks
     else:
         print("too many songs on album, please try again")
         return
 
-    #places the color squares onto the poster
+    #sets the top right of the square to be a little below image and 150 off the right edge
     top_right_x = width - 150
     top_y = 2254
 
+    #for each color in the color palette
     for color in palette:
+        #set the top left x coordinate of the square to be the top right x minus the width of the square
         top_left_x = top_right_x - color_width
 
+        #places the rectangle on the screen and sets a gap between this square and the next one on the left
         pygame.draw.rect(screen, color, (top_left_x, top_y, color_width, color_height))
-
         top_right_x = top_left_x - 10
+
+    #loads info font
+    info_font = pygame.font.SysFont("Times New Roman", 70)
+    info_starting_y = last_track_y + 20
+
+    #add the release date to the album length
+    length_year = album_length + " / " + format_date(release_date)
+
+    #places length text onto screen
+    length_text_surface = info_font.render(length_year, True, font_color)
+    length_text_rect = length_text_surface.get_rect(topleft=(150,info_starting_y))
+    screen.blit(length_text_surface, length_text_rect)
+
+    info_starting_y += 70
+
+    #places label text onto screen
+    label_text_surface = info_font.render(label_info, True, font_color)
+    wrap_text(screen, info_font, label_info, font_color, (width - 300) / 2, info_starting_y)
+    
+    format_date(release_date)
+
+
 
     # Save the poster as a jpg
     file_name = 'generated_image.jpg'
