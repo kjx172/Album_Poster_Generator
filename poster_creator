@@ -8,8 +8,8 @@ width, height = 2304, 3456
 color_width, color_height = 100, 100
 
 # Set font parameters
-font_size_big = 80
-font_size_small = 60
+tracks_font_size_big = 80
+track_font_size_small = 60
 font_color = (0, 0, 0)
 font_name = pygame.font.get_default_font()
 
@@ -62,7 +62,7 @@ def wrap_text(surface, font, text, color, max_width, starting_y):
         starting_y += text_rect.height
 
 
-def create_poster(cover, album_name, tracklist, palette, album_length, label_info, release_date):
+def create_poster(cover, tracklist, palette, album_length, label_info, release_date, album_name, artist_name):
     # Initialize Pygame
     pygame.init()
 
@@ -84,8 +84,8 @@ def create_poster(cover, album_name, tracklist, palette, album_length, label_inf
     screen.blit(image_surface, (x,200))
 
     # Load font for the columns
-    font_big = pygame.font.Font(font_name, font_size_big)
-    font_small = pygame.font.Font(font_name, font_size_small)
+    track_font_big = pygame.font.Font(font_name, tracks_font_size_big)
+    track_font_small = pygame.font.Font(font_name, track_font_size_small)
 
     #if the number of tracks is less than or equal to 13, only one column is needed
     if (len(tracklist) <= 13):
@@ -94,7 +94,7 @@ def create_poster(cover, album_name, tracklist, palette, album_length, label_inf
 
         # Render text onto the surface
         for i,track in enumerate(tracklist):     
-            text_surface = font_big.render(str(i + 1) + "." + track, True, font_color)
+            text_surface = track_font_big.render(str(i + 1) + "." + track, True, font_color)
 
             # Blit the text surface onto the screen
             text_rect = text_surface.get_rect(topleft=(150, start_y_tracks))
@@ -110,7 +110,7 @@ def create_poster(cover, album_name, tracklist, palette, album_length, label_inf
         longest_track = max(tracklist[:13], key=len)
 
          # Calculate the width of the longest track
-        longest_track_width, _ = font_small.size(longest_track)
+        longest_track_width, _ = track_font_small.size(longest_track)
 
         # Calculate the x-coordinate for the second column
         column_x = 150 + longest_track_width + 15  # 5 pixels to the right of the longest track
@@ -122,14 +122,14 @@ def create_poster(cover, album_name, tracklist, palette, album_length, label_inf
         # Render text onto the surface
         for i, track in enumerate(tracklist):
             if i <= 13:
-                text_surface = font_small.render(str(i + 1) + "." + track, True, font_color)
+                text_surface = track_font_small.render(str(i + 1) + "." + track, True, font_color)
 
                 # Blit the text surface onto the screen for the first column
                 text_rect = text_surface.get_rect(topleft=(150, start_y_tracks1))
                 screen.blit(text_surface, text_rect)
                 start_y_tracks1 += 60
             else:
-                text_surface = font_small.render(str(i + 1) + "." + track, True, font_color)
+                text_surface = track_font_small.render(str(i + 1) + "." + track, True, font_color)
 
                 # Blit the text surface onto the screen for the second column
                 text_rect = text_surface.get_rect(topleft=(column_x, start_y_tracks2))
@@ -165,19 +165,29 @@ def create_poster(cover, album_name, tracklist, palette, album_length, label_inf
     length_year = album_length + " / " + format_date(release_date)
 
     #places length text onto screen
-    length_text_surface = info_font.render(length_year, True, font_color)
-    length_text_rect = length_text_surface.get_rect(topleft=(150,info_starting_y))
-    screen.blit(length_text_surface, length_text_rect)
+    length_year_text_surface = info_font.render(length_year, True, font_color)
+    length_year_text_rect = length_year_text_surface.get_rect(topleft=(150,info_starting_y))
+    screen.blit(length_year_text_surface, length_year_text_rect)
 
     info_starting_y += 70
 
     #places label text onto screen
     label_text_surface = info_font.render(label_info, True, font_color)
     wrap_text(screen, info_font, label_info, font_color, (width - 300) / 2, info_starting_y)
+
+    #places artist name on screen
+    artist_font = pygame.font.SysFont("trebuchet ms", 90)
+    artist_text_surface = artist_font.render(artist_name, True, font_color)
+    artist_text_rect = artist_text_surface.get_rect(topleft=(1502, 3054)) #change start values later (middle + 100, 500 below squares)
+    screen.blit(artist_text_surface, artist_text_rect)
+
+    #places album name on screen
+    album_font = pygame.font.SysFont("trebuchet ms", 150)
+    album_text_surface = album_font.render(album_name, True, font_color)
+    album_text_rect = album_text_surface.get_rect(topleft=(1502, 3054 + 150)) #change start values later (middle + 100, 500 below squares)
+    screen.blit(album_text_surface, album_text_rect)
     
-    format_date(release_date)
-
-
+    
 
     # Save the poster as a jpg
     file_name = 'generated_image.jpg'
