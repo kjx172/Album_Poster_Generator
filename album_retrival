@@ -77,3 +77,90 @@ def get_tracklist(album_id):
 
 #get the most used colors in album cover
 def get_palette(album_cover):
+    #turns the album cover into an image that colortheif can use
+    colors = ColorThief(io.BytesIO(album_cover))
+
+    #gets the 5 most prominent colors from the image and returns them
+    palette = colors.get_palette(color_count = 5)
+    return palette
+
+#get duration of album
+def get_duration(album_id):
+    try:
+        #gets the release(album) by the id, including the list of recordings
+        result = musicbrainzngs.get_release_by_id(album_id, includes=["recordings"])
+
+        total_len_ms = 0
+        
+        #if there is a list of mediums that the release(album) is on (cd, digital, cassette, etc)
+        if 'medium-list' in result['release']:
+            #for each medium the release(album) is on
+            for medium in result['release']['medium-list']:
+                #for each track within that medium, add it to the tracklist using a set to prevent duplicates
+                for track in medium['track-list']:
+                    #add the length of each track to the total length
+                    if 'length' in track:
+                        total_len_ms += int(track['length'])
+        
+        #gets turns the ms to minutes and seconds
+        minutes = total_len_ms // 60000
+        seconds = (total_len_ms % 60000) // 1000
+
+        #formats the minutes and seconds, and a 0 infront of the second val if its only 1 digit
+        if len(str(seconds)) == 2:
+            time_str = str(minutes) + ":" + str(seconds)
+        else:
+            time_str = str(minutes) + ":0" + str(seconds)
+
+        return time_str
+
+
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred: {e}")
+
+#gets label info about album
+def get_label_info(album_id):
+    try:
+        #gets the release(album) by the id, including the label
+        result = musicbrainzngs.get_release_by_id(album_id, includes=["labels"])
+
+        label_str = "Released by "
+        
+        #if there is section for label info in the result
+        if 'label-info-list' in result['release']:
+            #for each label info item in the label info list
+            for i, label_info in enumerate(result['release']['label-info-list']):
+
+                #retrieves the label from the label info item
+                label = label_info.get('label')
+
+                #if there is no label
+                if label['name'] == "[no label]":
+                    label_str = "Released Independently"
+                    return label_str
+
+                #if there is at least 1 label
+                else:
+                    # If the label is not the final one in the label info list
+                    if i != len(result['release']['label-info-list']) - 1:
+                        label_str += label['name'] + ", "
+                    # If the label is the final one in the label info listlist
+                    else:
+                        label_str += label['name']
+
+        return label_str
+
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred: {e}")
+
+#get album release date
+def get_release_date(album_id):
+    try:
+        #gets the release(album) by the id, including the label
+        result = musicbrainzngs.get_release_by_id(album_id, includes=["labels"])
+
+        if 'date' in result['release']:
+            return result['release']['date']
+
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred: {e}")
