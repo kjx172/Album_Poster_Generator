@@ -1,6 +1,7 @@
 import musicbrainzngs
 from colorthief import ColorThief #type: ignore
 import io
+from collections import Counter
 
 # Set application details and contact
 musicbrainzngs.set_useragent("Album_Poster_Generator", "1.0", "kisituaaron@gmail.com")
@@ -146,13 +147,22 @@ def get_release_date(album_id):
     except musicbrainzngs.WebServiceError as e:
         print(f"An error occurred(date): {e}")
 
-#gets the name of the album
-def get_album_name(album_id):
+# Gets the name of the album
+def get_album_name(release_group_id):
     try:
-        result = musicbrainzngs.get_release_by_id(album_id)
+        # Get all releases in the release group
+        releases = musicbrainzngs.browse_releases(release_group=release_group_id)['release-list']
 
-        if 'title' in result['release']:
-            return result['release']['title']
+        # Extract titles from all releases
+        titles = [release['title'] for release in releases]
+
+        # Count occurrences of each title
+        title_counts = Counter(titles)
+
+        # Get the most common title
+        most_common_title = title_counts.most_common(1)[0][0]
+
+        return most_common_title
 
     except musicbrainzngs.WebServiceError as e:
         print(f"An error occurred(album name): {e}")
