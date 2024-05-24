@@ -2,12 +2,18 @@ import pygame
 import pygame.image
 import io
 
-def create_poster(cover, album_name):
+# Set the dimensions of the image(poster size)
+width, height = 2304, 3456
+
+# Set font parameters
+font_size_big = 80
+font_size_small = 60
+font_color = (0, 0, 0)
+font_name = pygame.font.get_default_font()
+
+def create_poster(cover, album_name, tracklist):
     # Initialize Pygame
     pygame.init()
-
-    # Set the dimensions of the image(poster size)
-    width, height = 2304, 3456
 
     # Create a background and sets background color
     screen = pygame.Surface((width, height))
@@ -24,7 +30,63 @@ def create_poster(cover, album_name):
     x = (width - image_surface.get_width()) // 2
 
     #places the image on the screen
-    screen.blit(image_surface, (x,100))
+    screen.blit(image_surface, (x,200))
+
+    # Load font for the columns
+    font_big = pygame.font.Font(font_name, font_size_big)
+    font_small = pygame.font.Font(font_name, font_size_small)
+
+    #if the number of tracks is less than or equal to 13, only one column is needed
+    if (len(tracklist) <= 13):
+        #starts the tracklist a little under the image
+        start_y_tracks = 2254
+
+        # Render text onto the surface
+        for track in tracklist:     
+            text_surface = font_big.render(track, True, font_color)
+
+            # Blit the text surface onto the screen
+            text_rect = text_surface.get_rect(topleft=(150, start_y_tracks))
+            screen.blit(text_surface, text_rect)
+            start_y_tracks += 80
+
+    #if the number of tracks is more than 13 but less than 26
+    elif (len(tracklist) <= 26):
+        # Determine the longest track in the first column
+        longest_track = max(tracklist[:13], key=len)
+
+         # Calculate the width of the longest track
+        longest_track_width, _ = font_small.size(longest_track)
+
+        # Calculate the x-coordinate for the second column
+        column_x = 150 + longest_track_width + 15  # 5 pixels to the right of the longest track
+
+       # Starts the tracklist a little under the image
+        start_y_tracks1 = 2254
+        start_y_tracks2 = 2254
+
+        # Render text onto the surface
+        for i, track in enumerate(tracklist):
+            if i <= 13:
+                text_surface = font_small.render(track, True, font_color)
+
+                # Blit the text surface onto the screen for the first column
+                text_rect = text_surface.get_rect(topleft=(150, start_y_tracks1))
+                screen.blit(text_surface, text_rect)
+                start_y_tracks1 += 60
+            else:
+                text_surface = font_small.render(track, True, font_color)
+
+                # Blit the text surface onto the screen for the second column
+                text_rect = text_surface.get_rect(topleft=(column_x, start_y_tracks2))
+                screen.blit(text_surface, text_rect)
+                start_y_tracks2 += 60
+
+    #if more than 26 tracks
+    else:
+        print("too many songs on album, please try again")
+        return
+
 
     # Save the poster as a jpg
     file_name = 'generated_image.jpg'
