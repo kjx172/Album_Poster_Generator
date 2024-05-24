@@ -19,7 +19,7 @@ def get_releasegroupid(search_album, search_artist):
             print("Could Not find release group")
 
     except musicbrainzngs.WebServiceError as e:
-        print(f"an error occured: {e}")
+        print(f"an error occured(release group id): {e}")
 
 #uses release group ID to get the ID of the first release(album) within the release group
 def get_releaseID_from_releasegroup(release_groupID):
@@ -39,7 +39,7 @@ def get_releaseID_from_releasegroup(release_groupID):
             print("could not find release(album) within the release group")
 
     except musicbrainzngs.WebServiceError as e:
-        print(f"an error occured: {e}")
+        print(f"an error occured(release ID): {e}")
 
 #attempt to download the album cover
 def get_cover(album_id):
@@ -48,7 +48,7 @@ def get_cover(album_id):
         return cover
 
     except musicbrainzngs.WebServiceError as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred(cover): {e}")
 
 #gets the tracklist
 def get_tracklist(album_id):
@@ -73,7 +73,7 @@ def get_tracklist(album_id):
 
 
     except musicbrainzngs.WebServiceError as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred(tracks): {e}")
 
 #get the most used colors in album cover
 def get_palette(album_cover):
@@ -116,7 +116,7 @@ def get_duration(album_id):
 
 
     except musicbrainzngs.WebServiceError as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred(length): {e}")
 
 #gets label info about album
 def get_label_info(album_id):
@@ -151,16 +151,30 @@ def get_label_info(album_id):
         return label_str
 
     except musicbrainzngs.WebServiceError as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred(label): {e}")
 
 #get album release date
 def get_release_date(album_id):
     try:
         #gets the release(album) by the id, including the label
-        result = musicbrainzngs.get_release_by_id(album_id, includes=["labels"])
+        result = musicbrainzngs.get_release_by_id(album_id)
 
         if 'date' in result['release']:
             return result['release']['date']
 
     except musicbrainzngs.WebServiceError as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred(date): {e}")
+
+#gets the name of the album
+def get_album_name(album_id):
+    try:
+        result = musicbrainzngs.get_release_by_id(album_id)
+
+        if 'title' in result['release']:
+            return result['release']['title']
+
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred(album name): {e}")
+
+#gets the name of the artist
+def get_artist_name(album_releasegroupid):
