@@ -11,7 +11,8 @@ def get_releasegroupid(search_album, search_artist):
         #search for the album using the name and artist provided
         result = musicbrainzngs.search_release_groups(artist = search_artist, releasegroup = search_album)
 
-        if result['release-group-list']: #if the album was found using the search return the id
+        #if the album was found using the search return the id
+        if result['release-group-list']: 
             album = result['release-group-list'][0]
             return album['id']
 
@@ -55,18 +56,10 @@ def get_tracklist(album_id):
     try:
         #gets the release(album) by the id, including the list of recordings
         result = musicbrainzngs.get_release_by_id(album_id, includes=["recordings"])
+        mediums = result.get('release', {}).get('medium-list', [])
         
-        #if there is a list of mediums that the release(album) is on (cd, digital, cassette, etc)
-        if 'medium-list' in result['release']:
-            tracklist = set()
-
-            #for each medium the release(album) is on
-            for medium in result['release']['medium-list']:
-
-                #for each track within that medium, add it to the tracklist using a set to prevent duplicates
-                for track in medium['track-list']:
-                    track_title = track['recording']['title']
-                    tracklist.add(track_title)
+        # use set comprehension to simplify this part
+        tracklist = {track['recording']['title'] for medium in mediums for track in medium.get('track-list', [])}
 
         #turn the set back into a list and return it
         return list(tracklist)
@@ -90,30 +83,24 @@ def get_duration(album_id):
         #gets the release(album) by the id, including the list of recordings
         result = musicbrainzngs.get_release_by_id(album_id, includes=["recordings"])
 
-        total_len_ms = 0
-        
-        #if there is a list of mediums that the release(album) is on (cd, digital, cassette, etc)
-        if 'medium-list' in result['release']:
-            #for each medium the release(album) is on
-            for medium in result['release']['medium-list']:
-                #for each track within that medium, add it to the tracklist using a set to prevent duplicates
-                for track in medium['track-list']:
-                    #add the length of each track to the total length
-                    if 'length' in track:
-                        total_len_ms += int(track['length'])
-        
-        #gets turns the ms to minutes and seconds
-        minutes = total_len_ms // 60000
-        seconds = (total_len_ms % 60000) // 1000
+        # Extract the list of mediums(cd, dvd, casette, etc)
+        mediums = result.get('release', {}).get('medium-list', [])
 
-        #formats the minutes and seconds, and a 0 infront of the second val if its only 1 digit
-        if len(str(seconds)) == 2:
-            time_str = str(minutes) + ":" + str(seconds)
-        else:
-            time_str = str(minutes) + ":0" + str(seconds)
+        # Sum the lengths of all tracks in all mediums
+        total_len_ms = sum(
+            int(track['length']) 
+            for medium in mediums 
+            for track in medium.get('track-list', []) 
+            if 'length' in track
+        )
+        
+        # Convert the  milliseconds to minutes and seconds
+        minutes, seconds = divmod(total_len_ms // 1000, 60)
+
+        # Format the time string
+        time_str = f"{minutes}:{seconds:02}"
 
         return time_str
-
 
     except musicbrainzngs.WebServiceError as e:
         print(f"An error occurred(length): {e}")
@@ -121,33 +108,27 @@ def get_duration(album_id):
 #gets label info about album
 def get_label_info(album_id):
     try:
-        #gets the release(album) by the id, including the label
+        # Get the release (album) by the id, including the label information
         result = musicbrainzngs.get_release_by_id(album_id, includes=["labels"])
 
-        label_str = "Released by "
+        # Check if there is label info in the result
+        label_info_list = result.get('release', {}).get('label-info-list', [])
         
-        #if there is section for label info in the result
-        if 'label-info-list' in result['release']:
-            #for each label info item in the label info list
-            for i, label_info in enumerate(result['release']['label-info-list']):
-
-                #retrieves the label from the label info item
-                label = label_info.get('label')
-
-                #if there is no label
-                if label['name'] == "[no label]":
-                    label_str = "Released Independently"
-                    return label_str
-
-                #if there is at least 1 label
-                else:
-                    # If the label is not the final one in the label info list
-                    if i != len(result['release']['label-info-list']) - 1:
-                        label_str += label['name'] + ", "
-                    # If the label is the final one in the label info listlist
-                    else:
-                        label_str += label['name']
-
+        # If no label info is found, return independently released
+        if not label_info_list:
+            return "Released Independently"
+        
+        # Retrieve label names or return independant if no labels
+        labels = []
+        for label_info in label_info_list:
+            label = label_info.get('label', {})
+            label_name = label.get('name', "[no label]")
+            if label_name == "[no label]":
+                return "Released Independently"
+            labels.append(label_name)
+        
+        # Join all labels into a single string
+        label_str = "Released by " + ", ".join(labels)
         return label_str
 
     except musicbrainzngs.WebServiceError as e:
