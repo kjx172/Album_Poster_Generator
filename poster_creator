@@ -11,7 +11,8 @@ marginalized_width, marginalized_height, marginalized_center = 2004, 3156, 1002
 text_portion_y = 2254
 info_font_size, album_name_font_size, artist_name_font_size = 40, 300, 90
 artist_name_x, artist_name_y = marginalized_center + 500, 2900 #+500 being the offset from center and 2900 being random height near bottom
-album_name_x, album_name_y = marginalized_center + 500, 2900 + artist_name_font_size #+500 being the offset from center
+album_name_x, album_name_y = marginalized_center + 500, 3000 + artist_name_font_size #+500 being the offset from center
+album_font_name, info_font_name, artist_font_name = "Futura", "courier new", "courier new"
 
 
 # Set font parameters
@@ -20,17 +21,41 @@ track_font_size_small = 60
 font_color = (0, 0, 0)
 font_name = pygame.font.get_default_font()
 
-#reformats the date
+#Reformats the date
 def format_date(raw_date):
+    #Split the date format into parts
+    date_components = raw_date.split('-')
 
-    #splits the date format into year, month, day
-    year, month, day = raw_date.split('-')
+    #if the date contains month day year
+    if len(date_components) == 3:
+        year, month, day = date_components
 
-    #year and day dont matter here(put my birthday as filler)
-    month_name = datetime.date(2004, int(month), 25).strftime('%B')
+        # Get the month name, year and day are place holders(used my birthday as place holder)
+        month_name = datetime.date(2004, int(month), 25).strftime('%B')
 
-    #return date with month name instead of number
-    return f"{day} {month_name} {year}"
+        # Return date with month name instead of number
+        return f"{day} {month_name} {year}"
+    
+    #if the date contains month year
+    elif len(date_components) == 2:
+        year, month = date_components
+        
+        # Get the month name, year and day are place holders(used my birthday as place holder)
+        month_name = datetime.date(2004, int(month), 25).strftime('%B')
+
+        # Return date with month name and year only
+        return f"{month_name} {year}"
+    
+    #if the date contains year only
+    elif len(date_components) == 1:
+        year = date_components[0]
+        # Return year only
+        return year
+    
+    #should not happen but just in case the date doesnt work
+    else:
+        # If the input format is unexpected, raise an error or return a default value
+        raise ValueError("Invalid date format")
 
 #prevents albums with multiple labels from taking up too much of the screen
 def info_wrap_text(surface, font, text, color, max_width, starting_x, starting_y):
@@ -65,12 +90,71 @@ def info_wrap_text(surface, font, text, color, max_width, starting_x, starting_y
     return text_surface, text_rect
 
 #places album name in bottom right corner
-def fit_album(screen, album_font, album_name, font_color, marginalized_width, marginalized_center, text_portion_horizontal_center, album_name_x, album_name_y):
-    #check if the album title can be put at the starting album_name_x and album_name_y without running into the right margin, if it cant work through the following steps
-    #1. keep moving the album title topleft x 50 pixels to the left while maintaining the font size, if the next movement would hit or pass the marginalized center and the album text bottom right pixel would still pass the right margin then stop moving left and move to step 2 as this step has failed
-    #2. place the album title top left x at the marginalized_center. Then move album text top left y up enough that the text can be wrapped into two lines while maintaining the same font size, ensuring that the text in the first line ends at the right margin, and that the text in the second line is allowed to continue until finished. If the album text bottom right x is passed the right margin then this step has failed, move to step 3
-    #3. if neither of the previous two steps work, then reduce the font size by 50 pixels and start at step one again
-    #keep going through these steps until one of the steps results in an album text that does not pass the right margin
+def fit_album(screen, album_font, album_name, font_color, marginalized_width, marginalized_center, album_name_x, album_name_y):
+    while True:
+        #attempt to render the album text
+        album_text_surface = album_font.render(album_name, True, font_color)
+        album_text_rect = album_text_surface.get_rect(topleft=(album_name_x, album_name_y))
+
+        #check if the album title can be put at the  album_name_x and album_name_y without running into the right margin, if so break
+        if album_text_rect.right <= right_margin:
+            break
+
+        #step 1: keep moving the album title topleft x 50 pixels to the left while maintaining the font size
+        album_name_x -= 50
+
+        #if the next movement would hit or pass the marginalized center move to Step 2: Try to fit the album name by wrapping into two lines
+        if album_name_x <= marginalized_center:
+            #set the album name x to the marginalized center and split the text into words
+            album_name_x = marginalized_center
+
+            words = album_name.split(' ')
+            first_line = ''
+            second_line = ''
+
+            #add each word to the first line until it reachs the right margin, then start a new line and add the following words into that line
+            for i, word in enumerate(words):
+                if i == 0:
+                    first_line += word
+                    continue
+
+                if album_font.size(first_line + ' ' + word)[0] <= marginalized_width:
+                    first_line += ' ' + word
+                else:
+                    second_line = ' '.join(words[i:])
+                    break
+
+            #if there is nothing in the second line then the title only took up one line and only needs to use the bottom line
+            if not second_line:
+                second_line = first_line
+                first_line = ''
+
+            #attempt to render the two lines
+            first_line_surface = album_font.render(first_line, True, font_color)
+            first_line_rect = first_line_surface.get_rect(topleft=(album_name_x, album_name_y))
+
+            second_line_surface = album_font.render(second_line, True, font_color)
+            second_line_rect = second_line_surface.get_rect(topleft=(album_name_x, album_name_y + album_font.get_linesize()))
+
+            #checks if the two lines hit the right margin
+            if first_line_rect.right <= right_margin and second_line_rect.right <= right_margin:
+                #puts the lines onto the screen, if first line is empty then only put second line
+                if first_line:
+                    screen.blit(first_line_surface, first_line_rect)
+                screen.blit(second_line_surface, second_line_rect)
+                return
+
+            # If the lines still hit the right margin, move to Step 3: Reduce font size and start over
+            album_font_size = album_font.get_height()
+            if album_font_size <= 0:
+                break  # Prevent infinite loop if font size becomes too small
+            album_font = pygame.font.SysFont(album_font_name, album_font_size - 50)
+
+            album_name_x = marginalized_center + 500
+
+    # Blit the final album name surface onto the screen
+    screen.blit(album_text_surface, album_text_rect)
+    return
 
 def create_poster(cover, tracklist, palette, album_length, label_info, release_date, album_name, artist_name):
 
@@ -166,7 +250,7 @@ def create_poster(cover, tracklist, palette, album_length, label_info, release_d
         top_right_x_squares = top_left_x_squares - 10
 
     #loads info font, places it 20 below the last track
-    info_font = pygame.font.SysFont("courier new", info_font_size)
+    info_font = pygame.font.SysFont(info_font_name, info_font_size)
     info_starting_y = last_track_y + 40
 
     #add the release date to the album length
@@ -185,11 +269,12 @@ def create_poster(cover, tracklist, palette, album_length, label_info, release_d
     info_wrap_text(screen, info_font, label_info, font_color, marginalized_center, left_margin, label_starting_y)
 
     # Places album name on screen
-    album_font = pygame.font.SysFont("Futura", album_name_font_size)
-    album_text_surface, album_text_rect = fit_album(screen, album_font, album_name, font_color, marginalized_width, marginalized_center, text_portion_horizontal_center, album_name_x, album_name_y)
+    album_font = pygame.font.SysFont(album_font_name, album_name_font_size)
+    fit_album(screen, album_font, album_name, font_color, marginalized_width, marginalized_center, album_name_x, album_name_y)
 
+    '''
     # Places artist name on screen
-    artist_font = pygame.font.SysFont("courier new", artist_name_font_size)
+    artist_font = pygame.font.SysFont(artist_font_name, artist_name_font_size)
 
     # Attempt to render artist name text
     artist_text_surface = artist_font.render(artist_name, True, font_color)
@@ -204,7 +289,7 @@ def create_poster(cover, tracklist, palette, album_length, label_info, release_d
 
     # Blit artist name text onto the screen
     screen.blit(artist_text_surface, artist_text_rect)
-    
+    '''
     # Save the poster as a jpg
     file_name = 'generated_image.jpg'
     pygame.image.save(screen, file_name)
