@@ -124,11 +124,6 @@ def fit_album(screen, album_font, album_name, font_color, marginalized_width, ma
                     second_line = ' '.join(words[i:])
                     break
 
-            #if there is nothing in the second line then the title only took up one line and only needs to use the bottom line
-            if not second_line:
-                second_line = first_line
-                first_line = ''
-
             #attempt to render the two lines
             first_line_surface = album_font.render(first_line, True, font_color)
             first_line_rect = first_line_surface.get_rect(topleft=(album_name_x, album_name_y))
@@ -142,7 +137,7 @@ def fit_album(screen, album_font, album_name, font_color, marginalized_width, ma
                 if first_line:
                     screen.blit(first_line_surface, first_line_rect)
                 screen.blit(second_line_surface, second_line_rect)
-                return
+                return second_line_rect
 
             # If the lines still hit the right margin, move to Step 3: Reduce font size and start over
             album_font_size = album_font.get_height()
@@ -154,7 +149,71 @@ def fit_album(screen, album_font, album_name, font_color, marginalized_width, ma
 
     # Blit the final album name surface onto the screen
     screen.blit(album_text_surface, album_text_rect)
-    return
+    return album_text_rect
+
+#place artist name right above the album name
+def fit_artist(screen, artist_font, artist_name, font_color, marginalized_width, marginalized_center, artist_name_x, artist_name_y, album_name_rect):
+    while True:
+        #Attempt to render the artist text
+        artist_text_surface = artist_font.render(artist_name, True, font_color)
+        artist_text_rect = artist_text_surface.get_rect(topleft=(artist_name_x, artist_name_y))
+
+        #Check if the artist title can be put at the artist_name_x and artist_name_y without running into the right margin or colliding with album name
+        if artist_text_rect.right <= right_margin and artist_text_rect.bottom <= album_name_rect.top:
+            break
+
+        #Step 1: Keep moving the artist title topleft x 15 pixels to the left while maintaining the font size
+        artist_name_x -= 15
+
+        #If the next movement would pass the album text, move to Step 2: Try to fit the artist name by wrapping into two lines
+        if artist_name_x <= album_name_rect.left:
+            #Set the artist name x to the album name left and split the text into words
+            artist_name_x = album_name_rect.left
+
+            words = artist_name.split(' ')
+            first_line = ''
+            second_line = ''
+
+            #Add each word to the first line until it reaches the right margin, then start a new line and add the following words into that line
+            for i, word in enumerate(words):
+                if i == 0:
+                    first_line += word
+                    continue
+
+                if artist_font.size(first_line + ' ' + word)[0] <= marginalized_width:
+                    first_line += ' ' + word
+                else:
+                    second_line = ' '.join(words[i:])
+                    break
+
+            #Attempt to render the two lines
+            first_line_surface = artist_font.render(first_line, True, font_color)
+            first_line_rect = first_line_surface.get_rect(topleft=(artist_name_x, artist_name_y))
+
+            second_line_surface = artist_font.render(second_line, True, font_color)
+            second_line_rect = second_line_surface.get_rect(topleft=(artist_name_x, artist_name_y + artist_font.get_linesize()))
+
+            #Checks if the two lines hit the right margin or collide with album name
+            if first_line_rect.right <= right_margin and first_line_rect.bottom <= album_name_rect.top and second_line_rect.right <= right_margin:
+
+                #Puts the lines onto the screen, if first line is empty then only put second line
+                if first_line:
+                    screen.blit(first_line_surface, first_line_rect)
+                screen.blit(second_line_surface, second_line_rect)
+                return second_line_rect
+            
+             #If the lines still hit the right margin, move to Step 3: Reduce font size and start over
+            artist_font_size = artist_font.get_height()
+            if artist_font_size <= 0:
+                break  #Prevent infinite loop if font size becomes too small
+            artist_font = pygame.font.SysFont(artist_font_name, artist_font_size - 15)
+
+            artist_name_x = marginalized_center + 500
+
+    # Blit the final artist name surface onto the screen
+    screen.blit(artist_text_surface, artist_text_rect)
+    return artist_text_rect
+
 
 def create_poster(cover, tracklist, palette, album_length, label_info, release_date, album_name, artist_name):
 
@@ -270,26 +329,12 @@ def create_poster(cover, tracklist, palette, album_length, label_info, release_d
 
     # Places album name on screen
     album_font = pygame.font.SysFont(album_font_name, album_name_font_size)
-    fit_album(screen, album_font, album_name, font_color, marginalized_width, marginalized_center, album_name_x, album_name_y)
-
-    '''
+    album_name_rect = fit_album(screen, album_font, album_name, font_color, marginalized_width, marginalized_center, album_name_x, album_name_y)
+    
     # Places artist name on screen
     artist_font = pygame.font.SysFont(artist_font_name, artist_name_font_size)
-
-    # Attempt to render artist name text
-    artist_text_surface = artist_font.render(artist_name, True, font_color)
-    artist_text_rect = artist_text_surface.get_rect(topleft=(artist_name_x, artist_name_y))
-
-    # Check if artist name text overlaps album name text
-    if artist_text_rect.colliderect(album_text_rect):
-        # Reduce font size and try again
-        artist_font = pygame.font.SysFont("courier new", artist_name_font_size - 10, bold=True)
-        artist_text_surface = artist_font.render(artist_name, True, font_color)
-        artist_text_rect = artist_text_surface.get_rect(topleft=(artist_name_x, artist_name_y))
-
-    # Blit artist name text onto the screen
-    screen.blit(artist_text_surface, artist_text_rect)
-    '''
+    artist_name_rect = fit_artist(screen, artist_font,artist_name, font_color, marginalized_width, marginalized_center, artist_name_x, artist_name_y, album_name_rect)
+    
     # Save the poster as a jpg
     file_name = 'generated_image.jpg'
     pygame.image.save(screen, file_name)
