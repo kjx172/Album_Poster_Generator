@@ -1,205 +1,175 @@
-import pygame
-import pygame.image
+import musicbrainzngs
+from colorthief import ColorThief #type: ignore
 import io
-import datetime
+from collections import Counter
+#import logging
 
-# Set the dimensions of the image(poster size), color squares, 
-width, height = 2304, 3456
-color_width, color_height = 100, 100
-top_margin, bottom_margin, left_margin, right_margin = 150, 3306, 150, 2154
-marginalized_width, marginalized_height = 2004, 3156
-album_name_x, album_name_y = (marginalized_width / 2) + 500, 3054 #+500 being the offset from center and 3054 being random height near bottom
-artist_name_x, artist_name_y = (marginalized_width / 2) + 500, 2900 #+500 being the offset from center and 2900 being random height near bottom
-info_font_size, album_name_font_size, artist_name_font_size = 70, 150, 90
-# Set font parameters
-tracks_font_size_big = 80
-track_font_size_small = 60
-font_color = (0, 0, 0)
-font_name = pygame.font.get_default_font()
+#used for musicbrainz to give error info
+#logging.basicConfig(level=logging.DEBUG)
 
-#reformats the date
-def format_date(raw_date):
+# Set application details and contact
+musicbrainzngs.set_useragent("Album_Poster_Generator", "1.0", "kisituaaron@gmail.com")
 
-    #splits the date format into year, month, day
-    year, month, day = raw_date.split('-')
+#gets the ID for the album release group
+def get_releasegroupid(search_album, search_artist):
+    try:
+        #search for the album using the name and artist provided
+        result = musicbrainzngs.search_release_groups(artist = search_artist, releasegroup = search_album)
 
-    #year and day dont matter here(put my birthday as filler)
-    month_name = datetime.date(2004, int(month), 25).strftime('%B')
+        #if the album was found using the search return the id
+        if result['release-group-list']: 
+            album = result['release-group-list'][0]
+            return album['id']
 
-    #return date with month name instead of number
-    return f"{day} {month_name} {year}"
-
-#prevents albums with multiple labels from taking up too much of the screen
-def wrap_text(surface, font, text, color, max_width, starting_x, starting_y):
-
-    #splits the text into words and creates an array for the lines
-    words = text.split(' ')
-    lines = []
-    current_line = ''
-
-    #for each word if the word doesnt cause the current line to reach the maximum width we add it to the current line, otherwise start a new line
-    for i, word in enumerate(words):
-
-        if i == 0:
-            current_line += word
-            continue
-
-        if font.size(current_line + ' ' + word)[0] <= max_width:
-            current_line += ' ' + word
         else:
-            lines.append(current_line)
-            current_line = word
+            print("Could Not find release group")
 
-    lines.append(current_line)
+    except musicbrainzngs.WebServiceError as e:
+        print(f"an error occured(release group id): {e}")
 
-    #places the lines onto the screen
-    for line in lines:
-        text_surface = font.render(line, True, color)
-        text_rect = text_surface.get_rect(topleft=(starting_x, starting_y))
-        surface.blit(text_surface, text_rect)
-        starting_y += text_rect.height
+#uses release group ID to get the ID of the first release(album) within the release group
+def get_releaseID_from_releasegroup(release_groupID):
+    try:
+        #get the release group by the ID we found, include all the release versions
+        result = musicbrainzngs.get_release_group_by_id(release_groupID, includes=["releases"])
 
-    return text_surface, text_rect
+        #check if the release-group and releases(album) keys are in result
+        if 'release-group' in result and 'release-list' in result['release-group']:
+            album = result['release-group']['release-list']
 
+            #if there are any releases(albums) within the release group, return the first one
+            if album:
+                return album[0]['id']
+            
+        else:
+            print("could not find release(album) within the release group")
 
-def create_poster(cover, tracklist, palette, album_length, label_info, release_date, album_name, artist_name):
+    except musicbrainzngs.WebServiceError as e:
+        print(f"an error occured(release ID): {e}")
 
-    # Initialize Pygame
-    pygame.init()
+#attempt to download the album cover
+def get_cover(album_id):
+    try:
+        cover = musicbrainzngs.get_image_front(album_id)
+        return cover
 
-    # Create a background and sets background color
-    screen = pygame.Surface((width, height))
-    screen.fill((255, 255, 240))
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred(cover): {e}")
 
-    #turns the musicbrainz image to an image that pygame can use
-    image_data = io.BytesIO(cover)
-    image_surface = pygame.image.load(image_data)
-
-    # Scale the image to fit the surface, want it to take up entire marginalized width
-    image_surface = pygame.transform.scale(image_surface, (marginalized_width, marginalized_width))
-
-    #places the image on the screen
-    screen.blit(image_surface, (left_margin,top_margin))
-
-    # Load font for the columns
-    track_font_big = pygame.font.Font(font_name, tracks_font_size_big)
-    track_font_small = pygame.font.Font(font_name, track_font_size_small)
-
-    #if the number of tracks is less than or equal to 13, only one column is needed
-    if (len(tracklist) <= 13):
-        #starts the tracklist a little under the image
-        start_y_tracks = 2254
-
-        # Render text onto the surface
-        for i,track in enumerate(tracklist):     
-            text_surface = track_font_big.render(str(i + 1) + "." + track, True, font_color)
-
-            # Blit the text surface onto the screen
-            text_rect = text_surface.get_rect(topleft=(left_margin, start_y_tracks))
-            screen.blit(text_surface, text_rect)
-            start_y_tracks += 80
+#gets the tracklist
+def get_tracklist(album_id):
+    try:
+        #gets the release(album) by the id, including the list of recordings
+        result = musicbrainzngs.get_release_by_id(album_id, includes=["recordings"])
+        mediums = result.get('release', {}).get('medium-list', [])
         
-        #used for info box placement
-        last_track_y = start_y_tracks
+        # use set comprehension to simplify this part
+        tracklist = {track['recording']['title'] for medium in mediums for track in medium.get('track-list', [])}
 
-    #if the number of tracks is more than 13 but less than 26
-    elif (len(tracklist) > 13 and len(tracklist) <= 26):
-        # Determine the longest track in the first column
-        longest_track = max(tracklist[:13], key=len)
+        #turn the set back into a list and return it
+        return list(tracklist)
 
-         # Calculate the width of the longest track
-        longest_track_width, _ = track_font_small.size(longest_track)
 
-        # Calculate the x-coordinate for the second column
-        column_x = left_margin + longest_track_width + 15  # 15 pixels to the right of the longest track
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred(tracks): {e}")
 
-       # Starts the tracklist a little under the image
-        start_y_tracks1 = 2254
-        start_y_tracks2 = 2254
+#get the most used colors in album cover
+def get_palette(album_cover):
+    #turns the album cover into an image that colortheif can use
+    colors = ColorThief(io.BytesIO(album_cover))
 
-        # Render text onto the surface
-        for i, track in enumerate(tracklist):
-            if i <= 13:
-                text_surface = track_font_small.render(str(i + 1) + "." + track, True, font_color)
+    #gets the 5 most prominent colors from the image and returns them
+    palette = colors.get_palette(color_count = 5)
+    return palette
 
-                # Blit the text surface onto the screen for the first column
-                text_rect = text_surface.get_rect(topleft=(left_margin, start_y_tracks1))
-                screen.blit(text_surface, text_rect)
-                start_y_tracks1 += 60
-            else:
-                text_surface = track_font_small.render(str(i + 1) + "." + track, True, font_color)
+#get duration of album
+def get_duration(album_id):
+    try:
+        #gets the release(album) by the id, including the list of recordings
+        result = musicbrainzngs.get_release_by_id(album_id, includes=["recordings"])
 
-                # Blit the text surface onto the screen for the second column
-                text_rect = text_surface.get_rect(topleft=(column_x, start_y_tracks2))
-                screen.blit(text_surface, text_rect)
-                start_y_tracks2 += 60
+        # Extract the list of mediums(cd, dvd, casette, etc)
+        mediums = result.get('release', {}).get('medium-list', [])
+
+        # Sum the lengths of all tracks in all mediums
+        total_len_ms = sum(
+            int(track['length']) 
+            for medium in mediums 
+            for track in medium.get('track-list', []) 
+            if 'length' in track
+        )
         
-        #used for info box placement
-        last_track_y = start_y_tracks1
+        # Convert the  milliseconds to minutes and seconds
+        minutes, seconds = divmod(total_len_ms // 1000, 60)
 
-    #if more than 26 tracks
-    else:
-        print("too many songs on album, please try again")
-        return
+        # Format the time string
+        time_str = f"{minutes}:{seconds:02}"
 
-    #sets the top right of the square to be a 200 below image and 150 off the right edge
-    top_right_x_squares = right_margin
-    top_y_squares = marginalized_width + 200
+        return time_str
 
-    #for each color in the color palette
-    for color in palette:
-        #set the top left x coordinate of the square to be the top right x minus the width of the square
-        top_left_x_squares = top_right_x_squares - color_width
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred(length): {e}")
 
-        #places the rectangle on the screen and sets a gap between this square and the next one on the left
-        pygame.draw.rect(screen, color, (top_left_x_squares, top_y_squares, color_width, color_height))
-        top_right_x_squares = top_left_x_squares - 10
+#gets label info about album
+def get_label_info(album_id):
+    try:
+        # Get the release (album) by the id, including the label information
+        result = musicbrainzngs.get_release_by_id(album_id, includes=["labels"])
 
-    #loads info font, places it 20 below the last track
-    info_font = pygame.font.SysFont("courier new", info_font_size)
-    info_starting_y = last_track_y + 20
+        # Check if there is label info in the result
+        label_info_list = result.get('release', {}).get('label-info-list', [])
+        
+        # If no label info is found, return independently released
+        if not label_info_list:
+            return "Released Independently"
+        
+        # Retrieve label names or return independant if no labels
+        labels = []
+        for label_info in label_info_list:
+            label = label_info.get('label', {})
+            label_name = label.get('name', "[no label]")
+            if label_name == "[no label]":
+                return "Released Independently"
+            labels.append(label_name)
+        
+        # Join all labels into a single string
+        label_str = "Released by " + ", ".join(labels)
+        return label_str
 
-    #add the release date to the album length
-    length_year = album_length + " / " + format_date(release_date)
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred(label): {e}")
 
-    #places length and year text onto screen
-    length_year_text_surface = info_font.render(length_year, True, font_color)
-    length_year_text_rect = length_year_text_surface.get_rect(topleft=(left_margin, info_starting_y))
-    screen.blit(length_year_text_surface, length_year_text_rect)
+#get album release date
+def get_release_date(album_id):
+    try:
+        #gets the release(album) by the id, including the label
+        result = musicbrainzngs.get_release_by_id(album_id)
 
-    #for putting the labels below the length and date, set to font size
-    info_starting_y += 70
+        if 'date' in result['release']:
+            return result['release']['date']
 
-    #places label text onto screen
-    label_text_surface = info_font.render(label_info, True, font_color)
-    wrap_text(screen, info_font, label_info, font_color, marginalized_width / 2, left_margin, info_starting_y)
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred(date): {e}")
 
-    # Places album name on screen
-    album_font = pygame.font.SysFont("trebuchet ms", album_name_font_size, bold=True)
-    album_text_surface, album_text_rect = wrap_text(screen, album_font, album_name, font_color, marginalized_width, album_name_x, album_name_y)
+# Gets the name of the album
+def get_album_name(release_group_id):
+    try:
+        # Get all releases in the release group
+        releases = musicbrainzngs.browse_releases(release_group=release_group_id)['release-list']
 
-    # Places artist name on screen
-    artist_font = pygame.font.SysFont("trebuchet ms", artist_name_font_size, bold=True)
+        # Extract titles from all releases
+        titles = [release['title'] for release in releases]
 
-    # Attempt to render artist name text
-    artist_text_surface = artist_font.render(artist_name, True, font_color)
-    artist_text_rect = artist_text_surface.get_rect(topleft=(artist_name_x, artist_name_y))
+        # Count occurrences of each title
+        title_counts = Counter(titles)
 
-    # Check if artist name text overlaps album name text
-    if artist_text_rect.colliderect(album_text_rect):
-        # Reduce font size and try again
-        artist_font = pygame.font.SysFont("trebuchet ms", artist_name_font_size - 10, bold=True)
-        artist_text_surface = artist_font.render(artist_name, True, font_color)
-        artist_text_rect = artist_text_surface.get_rect(topleft=(artist_name_x, artist_name_y))
+        # Get the most common title
+        most_common_title = title_counts.most_common(1)[0][0]
 
-    # Blit artist name text onto the screen
-    screen.blit(artist_text_surface, artist_text_rect)
-    
-    # Save the poster as a jpg
-    file_name = 'generated_image.jpg'
-    pygame.image.save(screen, file_name)
-    print(f"Image saved as {file_name}")
+        return most_common_title
 
-    # Quit Pygame
-    pygame.quit()
-    
+    except musicbrainzngs.WebServiceError as e:
+        print(f"An error occurred(album name): {e}")
+
+#gets the name of the artist
+def get_artist_name(album_releasegroupid):
