@@ -2,22 +2,23 @@ import pygame
 import pygame.image
 import io
 import datetime
+#import logging
 
-# Set the dimensions of the image(poster size), color squares, 
+#used for musicbrainz to give error info
+#logging.basicConfig(level=logging.DEBUG)
+
+#set the constant variables 
+background_color = (255, 255, 240)
 width, height = 2304, 3456
 color_width, color_height = 100, 100
 top_margin, bottom_margin, left_margin, right_margin = 150, 3306, 150, 2154
 marginalized_width, marginalized_height, marginalized_center = 2004, 3156, 1002
 text_portion_y = 2254
+track_font_size, column_gap = 80, 15
 info_font_size, album_name_font_size, artist_name_font_size = 40, 300, 90
 artist_name_x, artist_name_y = marginalized_center + 500, 2900 #+500 being the offset from center and 2900 being random height near bottom
 album_name_x, album_name_y = marginalized_center + 500, 3000 + artist_name_font_size #+500 being the offset from center
 album_font_name, info_font_name, artist_font_name = "Futura", "courier new", "courier new"
-
-
-# Set font parameters
-tracks_font_size_big = 80
-track_font_size_small = 60
 font_color = (0, 0, 0)
 font_name = pygame.font.get_default_font()
 
@@ -214,6 +215,87 @@ def fit_artist(screen, artist_font, artist_name, font_color, marginalized_width,
     screen.blit(artist_text_surface, artist_text_rect)
     return artist_text_rect
 
+#places tracklist onto screen
+def fit_tracklist(screen, tracklist, track_font, album_name_rect, artist_name_rect, squares_rect, text_portion_y, left_margin, font_color):
+    def check_collision(rect, elements):
+        return any(rect.colliderect(element) for element in elements)
+
+    # First, try to fit all tracks in one column with the original font size
+    last_track_y = text_portion_y
+    fits = True
+    track_surfaces = []
+    elements_to_check = [album_name_rect, artist_name_rect, squares_rect]
+    max_right1 = 0  # Rightmost point of the first column
+    max_right2 = 0  # Rightmost point of the second column
+
+    for i, track in enumerate(tracklist):
+        text_surface = track_font.render(f"{i + 1}. {track}", True, font_color)
+        text_rect = text_surface.get_rect(topleft=(left_margin, last_track_y))
+        track_surfaces.append((text_surface, text_rect))
+        last_track_y += track_font.get_height()
+
+        # Check if the text goes beyond the bottom margin or collides with elements
+        if last_track_y > bottom_margin or check_collision(text_rect, elements_to_check):
+            fits = False
+            break
+
+    if fits:
+        for text_surface, text_rect in track_surfaces:
+            screen.blit(text_surface, text_rect)
+        return last_track_y
+
+    # If tracks don't fit in one column, switch to two-column layout
+    while True:
+        fits = True
+        track_surfaces = []
+        last_track_y1 = text_portion_y
+        last_track_y2 = text_portion_y
+        column_x = left_margin
+        first_column_done = False
+
+        for i, track in enumerate(tracklist):
+            text_surface = track_font.render(f"{i + 1}. {track}", True, font_color)
+
+            if not first_column_done:
+                text_rect = text_surface.get_rect(topleft=(column_x, last_track_y1))
+                last_track_y1 += track_font.get_height()
+
+                if last_track_y1 > bottom_margin:
+                    first_column_done = True
+                    column_x = max_right1 + column_gap
+                    last_track_y1 = text_portion_y
+                    text_rect = text_surface.get_rect(topleft=(column_x, last_track_y2))
+                    last_track_y2 += track_font.get_height()
+                else:
+                    track_surfaces.append((text_surface, text_rect))
+                    max_right1 = max(max_right1, text_rect.right)
+            else:
+                text_rect = text_surface.get_rect(topleft=(column_x, last_track_y2))
+                last_track_y2 += track_font.get_height()
+                track_surfaces.append((text_surface, text_rect))
+                max_right2 = max(max_right2, text_rect.right)
+
+        # Check for collisions with album name, artist name, or squares
+        if any(check_collision(text_rect, elements_to_check) for _, text_rect in track_surfaces):
+            fits = False
+        else:
+            fits = True
+
+        if fits:
+            for text_surface, text_rect in track_surfaces:
+                screen.blit(text_surface, text_rect)
+            return max(last_track_y1, last_track_y2)
+
+        # Reduce font size and try again if text collides
+        track_font_size = track_font.get_height()
+        if track_font_size <= 0:
+            break  # Prevent infinite loop if font size becomes too small
+        track_font = pygame.font.Font(None, track_font_size - 2)
+
+    print("Unable to fit the tracklist")
+    return 0
+
+
 
 def create_poster(cover, tracklist, palette, album_length, label_info, release_date, album_name, artist_name):
 
@@ -222,7 +304,7 @@ def create_poster(cover, tracklist, palette, album_length, label_info, release_d
 
     # Create a background and sets background color
     screen = pygame.Surface((width, height))
-    screen.fill((255, 255, 240))
+    screen.fill(background_color)
 
     #turns the musicbrainz image to an image that pygame can use
     image_data = io.BytesIO(cover)
@@ -234,79 +316,38 @@ def create_poster(cover, tracklist, palette, album_length, label_info, release_d
     #places the image on the screen
     screen.blit(image_surface, (left_margin,top_margin))
 
-    # Load font for the columns
-    track_font_big = pygame.font.Font(font_name, tracks_font_size_big)
-    track_font_small = pygame.font.Font(font_name, track_font_size_small)
-
-    #if the number of tracks is less than or equal to 13, only one column is needed
-    if (len(tracklist) <= 13):
-        #starts the tracklist a little under the image
-        start_y_tracks = text_portion_y
-
-        # Render text onto the surface
-        for i,track in enumerate(tracklist):     
-            text_surface = track_font_big.render(str(i + 1) + "." + track, True, font_color)
-
-            # Blit the text surface onto the screen
-            text_rect = text_surface.get_rect(topleft=(left_margin, start_y_tracks))
-            screen.blit(text_surface, text_rect)
-            start_y_tracks += 80
-        
-        #used for info box placement
-        last_track_y = start_y_tracks
-
-    #if the number of tracks is more than 13 but less than 26
-    elif (len(tracklist) > 13 and len(tracklist) <= 26):
-        # Determine the longest track in the first column
-        longest_track = max(tracklist[:13], key=len)
-
-         # Calculate the width of the longest track
-        longest_track_width, _ = track_font_small.size(longest_track)
-
-        # Calculate the x-coordinate for the second column
-        column_x = left_margin + longest_track_width + 15  # 15 pixels to the right of the longest track
-
-       # Starts the tracklist a little under the image
-        start_y_tracks1 = text_portion_y
-        start_y_tracks2 = text_portion_y
-
-        # Render text onto the surface
-        for i, track in enumerate(tracklist):
-            if i <= 13:
-                text_surface = track_font_small.render(str(i + 1) + "." + track, True, font_color)
-
-                # Blit the text surface onto the screen for the first column
-                text_rect = text_surface.get_rect(topleft=(left_margin, start_y_tracks1))
-                screen.blit(text_surface, text_rect)
-                start_y_tracks1 += 60
-            else:
-                text_surface = track_font_small.render(str(i + 1) + "." + track, True, font_color)
-
-                # Blit the text surface onto the screen for the second column
-                text_rect = text_surface.get_rect(topleft=(column_x, start_y_tracks2))
-                screen.blit(text_surface, text_rect)
-                start_y_tracks2 += 60
-        
-        #used for info box placement
-        last_track_y = start_y_tracks1
-
-    #if more than 26 tracks
-    else:
-        print("too many songs on album, please try again")
-        return
-
     #sets the top right of the square to be a 200 below image and 150 off the right edge
     top_right_x_squares = right_margin
     top_y_squares = marginalized_width + 200
 
-    #for each color in the color palette
-    for color in palette:
-        #set the top left x coordinate of the square to be the top right x minus the width of the square
-        top_left_x_squares = top_right_x_squares - color_width
+    # Calculate the total width of the combined squares
+    total_width = len(palette) * (color_width + 10) - 10
+    # Set the top left x coordinate of the combined rectangle
+    top_left_x_combined = top_right_x_squares - total_width
 
-        #places the rectangle on the screen and sets a gap between this square and the next one on the left
+    # Draw the combined rectangle
+    squares_rect = pygame.draw.rect(screen, background_color, (top_left_x_combined, top_y_squares, total_width, color_height))
+
+    # Draw individual squares within the combined rectangle
+    for i, color in enumerate(palette):
+        top_left_x_squares = top_right_x_squares - (i + 1) * (color_width + 10) + 10
         pygame.draw.rect(screen, color, (top_left_x_squares, top_y_squares, color_width, color_height))
-        top_right_x_squares = top_left_x_squares - 10
+
+    #Places album name on screen
+    album_font = pygame.font.SysFont(album_font_name, album_name_font_size)
+    album_name_rect = fit_album(screen, album_font, album_name, font_color, marginalized_width, marginalized_center, album_name_x, album_name_y)
+    
+    #Places artist name on screen
+    artist_font = pygame.font.SysFont(artist_font_name, artist_name_font_size)
+    artist_name_rect = fit_artist(screen, artist_font,artist_name, font_color, marginalized_width, marginalized_center, artist_name_x, artist_name_y, album_name_rect)
+
+    #places tracklist onto screen
+    track_font = pygame.font.Font(font_name, track_font_size)
+    last_track_y = fit_tracklist(screen, tracklist, track_font, album_name_rect, artist_name_rect, squares_rect, text_portion_y, left_margin, font_color)
+
+    #if the tracks were unable to fit
+    if last_track_y == -1:
+        exit()
 
     #loads info font, places it 20 below the last track
     info_font = pygame.font.SysFont(info_font_name, info_font_size)
@@ -327,14 +368,6 @@ def create_poster(cover, tracklist, palette, album_length, label_info, release_d
     label_text_surface = info_font.render(label_info, True, font_color)
     info_wrap_text(screen, info_font, label_info, font_color, marginalized_center, left_margin, label_starting_y)
 
-    # Places album name on screen
-    album_font = pygame.font.SysFont(album_font_name, album_name_font_size)
-    album_name_rect = fit_album(screen, album_font, album_name, font_color, marginalized_width, marginalized_center, album_name_x, album_name_y)
-    
-    # Places artist name on screen
-    artist_font = pygame.font.SysFont(artist_font_name, artist_name_font_size)
-    artist_name_rect = fit_artist(screen, artist_font,artist_name, font_color, marginalized_width, marginalized_center, artist_name_x, artist_name_y, album_name_rect)
-    
     # Save the poster as a jpg
     file_name = 'generated_image.jpg'
     pygame.image.save(screen, file_name)
