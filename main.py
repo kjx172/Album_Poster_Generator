@@ -27,7 +27,7 @@ def fetch_album_details(search_album, search_artist):
         "length": get_duration(album_id),
         "label_info": get_label_info(album_id),
         "release_date": get_release_date(album_id),
-        "album_name": get_album_name(album_releasegroupid),
+        "album_name": get_album_name(album_id),
         "artist_name": get_artist_name(album_releasegroupid),
     }
 
