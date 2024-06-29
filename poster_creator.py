@@ -293,8 +293,7 @@ def fit_tracklist(screen, tracklist, track_font, album_name_rect, artist_name_re
         track_font = pygame.font.Font(None, track_font_size - 2)
 
     print("Unable to fit the tracklist")
-    return 0
-
+    return -1
 
 
 def create_poster(cover, tracklist, palette, album_length, label_info, release_date, album_name, artist_name):
