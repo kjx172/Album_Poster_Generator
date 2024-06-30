@@ -156,7 +156,7 @@ def get_album_name(release_group_id):
     try:
         # Get all releases in the release group
         releases = musicbrainzngs.browse_releases(release_group=release_group_id)['release-list']
-
+        
         # Extract titles from all releases
         titles = [release['title'] for release in releases]
 
